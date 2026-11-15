@@ -768,14 +768,18 @@ sp<::android::hidl::base::V1_0::IBase> getRawServiceInternal(const std::string& 
     const bool allowLegacy = !kEnforceVintfManifest || (trebleTestingOverride && isDebuggable());
     const bool vintfLegacy = (transport == Transport::EMPTY) && allowLegacy;
 
-    if (!kEnforceVintfManifest) {
-        ALOGE("getService: Potential race detected. The VINTF manifest is not being enforced. If "
+    // cappu: this device cannot enforce the VINTF manifest (non-Treble layout), and upstream
+    // then sleeps one second on every HAL lookup. All HALs this device runs are declared in
+    // its manifest, so only take the legacy pause for interfaces that are not declared, and
+    // keep it short: those lookups are version probes that are expected to find nothing.
+    if (!kEnforceVintfManifest && transport == Transport::EMPTY) {
+        ALOGW("getService: Potential race detected. The VINTF manifest is not being enforced. If "
               "a HAL server has a delay in starting and it is not in the manifest, it will not be "
               "retrieved. Please make sure all HALs on this device are in the VINTF manifest and "
               "enable PRODUCT_ENFORCE_VINTF_MANIFEST on this device (this is also enabled by "
               "PRODUCT_FULL_TREBLE). PRODUCT_ENFORCE_VINTF_MANIFEST will ensure that no race "
               "condition is possible here.");
-        sleep(1);
+        usleep(20 * 1000);
     }
 
     for (int tries = 0; !getStub && (vintfHwbinder || vintfLegacy); tries++) {
